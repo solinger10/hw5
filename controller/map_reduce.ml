@@ -3,7 +3,11 @@ open Worker_manager
 
 (* TODO implement these *)
 let map kv_pairs map_filename : (string * string) list = 
-  failwith "Go back whence you came! Trouble the soul of my Mother no more!"
+  let manager = initialize_mappers map_filename in
+  let input = Hashtbl.create (List.length kv_pairs) in
+  let pool = Thread_pool.create 100 in
+  
+  List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 let combine kv_pairs : (string * string list) list = 
   failwith "You have been doomed ever since you lost the ability to love."
