@@ -3,10 +3,22 @@ open Worker_manager
 
 (* TODO implement these *)
 let map kv_pairs map_filename : (string * string) list = 
-  let manager = initialize_mappers map_filename in
+  let wm = initialize_mappers map_filename in
   let input = Hashtbl.create (List.length kv_pairs) in
   let pool = Thread_pool.create 100 in
   
+  let lock = mutex.create () in
+  
+  let addwork (k,v) = 
+    let worker = pop_worker wm in 
+	
+	match (Worker_manager.map worker k v) with
+	|None -> ()
+	|Some l ->
+      Mutex.lock lock;
+	  if Hashtbl.mem input k then (*do nothing*)
+	  else 
+	  
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 let combine kv_pairs : (string * string list) list = 
