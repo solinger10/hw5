@@ -14,6 +14,9 @@ let map kv_pairs map_filename : (string * string) list =
   
   let lock = mutex.create () in
   
+  List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
+
+  
   let addwork (k,v) = 
     let worker = pop_worker wm in 
 	
@@ -21,10 +24,9 @@ let map kv_pairs map_filename : (string * string) list =
 	|None -> ()
 	|Some l ->
       Mutex.lock lock;
-	  if Hashtbl.mem input k then (*do nothing*)
+	  if Hashtbl.mem input k then 
 	  else 
 	  
-  List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 let combine kv_pairs : (string * string list) list = 
   failwith "You have been doomed ever since you lost the ability to love."
