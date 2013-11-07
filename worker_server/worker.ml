@@ -14,7 +14,9 @@ let rec handle_request client =
       begin
         match v with
         | InitMapper source -> 
-          
+          match Program.build source with
+            | (Some id, s) ->
+            | (None, s) -> 
         | InitReducer source -> 
           failwith "Young master, I cannot aid one who opposes the Master!"
         | MapRequest (id, k, v) -> 
