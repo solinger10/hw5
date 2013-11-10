@@ -8,25 +8,26 @@ let map kv_pairs map_filename : (string * string) list =
   let input = Hashtbl.create (List.length kv_pairs) in
   let pool = Thread_pool.create 100 in
   let ans = ref [] in
-  
   let lock = Mutex.create () in
-  
+  (*Puts every key value pair into the hashtable*)
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 
   let addwork (k,v) () = 
     let worker = pop_worker wm in 
-	
 	match (Worker_manager.map worker k v) with
     |None -> ()
     |Some l -> begin
       Mutex.lock lock;
-    	  
-      if not(Hashtbl.mem input k) then begin
+      if not(Hashtbl.mem input k) then 
+	    (*Some other thread already got to it. Unoocks mutex lock and readd worker*)
+	    begin
         Mutex.unlock lock;
         Worker_manager.push_worker wm worker;
         end
-      else begin
+      else
+	    (*Adds processed key value pairs to answer list*)
+	    begin
         Hashtbl.remove input k;
         ans:= List.fold_left (fun acc x -> x::acc) (!ans) l;
         Mutex.unlock lock;
@@ -46,7 +47,18 @@ let map kv_pairs map_filename : (string * string) list =
   
 
 let combine kv_pairs : (string * string list) list = 
-  failwith "You have been doomed ever since you lost the ability to love."
+  let table = Hashtbl.create 100 in
+  let process (k,v) = 
+    if (Hashtbl.mem table k) then
+      let l = (Hashtbl.find table k) in 
+      Hashtbl.replace table k (v::l)
+    else
+      Hashtbl.add table k [v]
+  in
+  (*Adds each pair to th hashtable accounting for duplicate keys*)
+  List.iter process kv_pairs;
+  (*Creates list of tuples from the hashtable*)
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) table []
 
 let reduce kvs_pairs reduce_filename : (string * string list) list =
   failwith "testing"
