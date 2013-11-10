@@ -1,11 +1,10 @@
 open Util
 open Worker_manager
-open Thread_pool
 open Hashtbl 
 
-let h_table : Hashtbl ref = ref Hashtbl.create 97
-let h_table_Mutex = Mutex.create ()
-
+let map kv_pairs map_filename : (string * string) list =
+  failwith "Testing"
+(*
 (* TODO implement these *)
 let map kv_pairs map_filename : (string * string) list = 
   let wm = initialize_mappers map_filename in
@@ -22,9 +21,10 @@ let map kv_pairs map_filename : (string * string) list =
 	|Some l ->
       Mutex.lock lock;
 	  if Hashtbl.mem input k then (*do nothing*)
-	  else 
+	  else failwith "No" in
 	  
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
+*)
 
 let combine kv_pairs : (string * string list) list = 
   failwith "You have been doomed ever since you lost the ability to love."
@@ -32,27 +32,36 @@ let combine kv_pairs : (string * string list) list =
 let reduce kvs_pairs reduce_filename : (string * string list) list =
   let reduce_manager = Worker_manager.initialize_reducers reduce_filename in
   let threads = Thread_pool.create (List.length kvs_pairs) in
+  let h_table = ref (Hashtbl.create List.length kvs_pairs) in
+  let h_table_Mutex = Mutex.create in
 
-  (*Appends the results of a worker to the hashtable, used for add_work*)
-  let append_hashtable cur_worker key values cur_worker : unit = 
+  let reduce_one key values cur_worker =
+    let result = Worker_manager.reduce cur_worker key values in
     Mutex.lock h_table_Mutex;
-    let res_val = Worker_manager.reduce cur_worker key values 
-    and new_table = !h_table in
-      Hashtbl.replace new_table key res_val; 
-      h_table := new_table; 
-      Mutex.unlock h_table_Mutex in
+    Hashtbl.add !h_table key result;
+    Mutex.unlock h_table_Mutex in
+  
+  (*Loops through current tasks, if done, remove from list, else add to waiting_list until done*)
+  let rec check_Done (workers : worker list) (unfinished : worker list) : worker list = 
+  match (workers, unfinished) with
+  |(x::xs, _) -> Worker.send_request x (*Check if worker is done, if so remove from list, if not add to unfinished*)
+  |([], _) -> check_Done unfinished [];
+  |([], []) -> []
 
-  (*Iterates the kvs_pairs list, assigning a worker to each kvs pair*)
-  let rec distribute kvs_pairs : unit =
-  	match kvs_pairs with
-  	|(key, values)::xs -> 
+  (*Assigns a reducer worker a task based off a given kv_pair*)
+  let assign workers kvs_pair : worker list =
+  	match kvs_pair with
+  	|(key, values) -> 
       begin
   		let cur_worker = Worker_manager.pop_worker reduce_manager in
-      Thread_pool.add_work(append_hashtable cur_worker key values) threads;
-      distribute xs
-      end
-  	|[] -> out_pairs in
-  distribute kvs_pairs;
+      Thread_pool.add_work(reduce_one cur_worker key values) threads;
+      cur_worker::workers
+      end in
+  let workers = List.fold_left assign [] kvs_pairs;
+
+
+  let check_
+  failwith "yeah"
   
 
 
