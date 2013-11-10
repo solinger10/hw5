@@ -1,10 +1,6 @@
 open Util
 open Worker_manager
-open Thread_pool
-open Hashtbl 
 
-let h_table : Hashtbl ref = ref Hashtbl.create 97
-let h_table_Mutex = Mutex.create ()
 
 (* TODO implement these *)
 let map kv_pairs map_filename : (string * string) list = 
@@ -13,52 +9,47 @@ let map kv_pairs map_filename : (string * string) list =
   let pool = Thread_pool.create 100 in
   let ans = ref [] in
   
-  let lock = mutex.create () in
+  let lock = Mutex.create () in
   
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 
-  let addwork (k,v) = 
+  let addwork (k,v) () = 
     let worker = pop_worker wm in 
 	
 	match (Worker_manager.map worker k v) with
-	|None -> ()
-	|Some l ->
+    |None -> ()
+    |Some l -> begin
       Mutex.lock lock;
-	  
-	  if not(Hashtbl.mem input k) then Mutex.unlock lock
-	  else 
-	    Hashtbl.remove work k;
-	    ans := l@!ans
-	  
+    	  
+      if not(Hashtbl.mem input k) then begin
+        Mutex.unlock lock;
+        Worker_manager.push_worker wm worker;
+        end
+      else begin
+        Hashtbl.remove input k;
+        ans:= List.fold_left (fun acc x -> x::acc) (!ans) l;
+        Mutex.unlock lock;
+    	Worker_manager.push_worker wm worker;
+      end
+	end
+  in
+  
+  while Hashtbl.length input > 0
+  do
+    Hashtbl.iter (fun k v -> Thread_pool.add_work (addwork (k,v)) pool) input;
+    Thread.delay 0.1
+  done;
+  Thread_pool.destroy pool;
+  clean_up_workers wm;
+  !ans
+  
 
 let combine kv_pairs : (string * string list) list = 
   failwith "You have been doomed ever since you lost the ability to love."
 
 let reduce kvs_pairs reduce_filename : (string * string list) list =
-  let reduce_manager = Worker_manager.initialize_reducers reduce_filename in
-  let threads = Thread_pool.create (List.length kvs_pairs) in
-
-  (*Appends the results of a worker to the hashtable, used for add_work*)
-  let append_hashtable cur_worker key values cur_worker : unit = 
-    Mutex.lock h_table_Mutex;
-    let res_val = Worker_manager.reduce cur_worker key values 
-    and new_table = !h_table in
-      Hashtbl.replace new_table key res_val; 
-      h_table := new_table; 
-      Mutex.unlock h_table_Mutex in
-
-  (*Iterates the kvs_pairs list, assigning a worker to each kvs pair*)
-  let rec distribute kvs_pairs : unit =
-  	match kvs_pairs with
-  	|(key, values)::xs -> 
-      begin
-  		let cur_worker = Worker_manager.pop_worker reduce_manager in
-      Thread_pool.add_work(append_hashtable cur_worker key values) threads;
-      distribute xs
-      end
-  	|[] -> out_pairs in
-  distribute kvs_pairs;
+  failwith "testing"
   
 
 
