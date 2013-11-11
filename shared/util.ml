@@ -90,3 +90,9 @@ let split_to_class_lst = Str.split (Str.regexp "|")
 (* marshaling *)
 let marshal x = Marshal.to_string x []
 let unmarshal x = Marshal.from_string x 0
+
+(* Print the x and y position of each body, in order of ascending id *)
+let string_of_bodies (reduce_results : (string * body) list) : string = 
+  List.fold_left (fun acc (_,(_,(x,y),_)) -> 
+    (Printf.sprintf "%f %f %d\n" x y 0) ^ acc)
+    "" (List.sort (fun (x,_) (y,_) -> compare x y) reduce_results)

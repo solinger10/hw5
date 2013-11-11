@@ -13,7 +13,7 @@ let map kv_pairs map_filename : (string * string) list =
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 
-  let process_one (k,v) () = 
+  let process (k,v) () = 
     let worker = pop_worker wm in 
     match (Worker_manager.map worker k v) with
     |None -> ()
@@ -37,7 +37,7 @@ let map kv_pairs map_filename : (string * string) list =
   in
   
   while Hashtbl.length input > 0 do
-    Hashtbl.iter (fun k v -> Thread_pool.add_work (process_one (k,v)) pool) input;
+    Hashtbl.iter (fun k v -> Thread_pool.add_work (process (k,v)) pool) input;
     Thread.delay 0.1
   done;
   Thread_pool.destroy pool;
