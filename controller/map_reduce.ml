@@ -21,9 +21,13 @@ let reduce kvs_pairs reduce_filename : (string * string list) list =
   
   let reduce_one key values cur_worker =
     let result = Worker_manager.reduce cur_worker key values in
+    match result with
+    | Some(res) -> 
     Mutex.lock h_table_Mutex;
     Hashtbl.add !h_table key result;
-    Mutex.unlock h_table_Mutex in
+    Mutex.unlock h_table_Mutex 
+    | None -> ()
+    in
 
   (*Assigns a reducer worker a task based off a given kv_pair*)
   let assign workers kvs_pair : worker list =
@@ -42,20 +46,25 @@ let reduce kvs_pairs reduce_filename : (string * string list) list =
     |((worker_id, worker_conn), count, key, values)::xs -> 
       begin
       if Hashtbl.mem key then 
+        (*Worker done, push back on to queue*)
         begin
         Worker_manager.push_worker reduce_manager (worker_id, worker_conn);
         check_Done xs unfinished
         end
-      else if count > 25 then
+      else if count > 10 then
+        (*Taking too long, assign new worker*)
         let new_worker = Worker_manager.pop_worker reduce_manager in
         Thread_pool.add_work(reduce_one new_worker key values);
         check_Done processing (new_worker, 0, key, values)::
         ((worker_id, worker_conn), 0, key, values)::unfinished
       else 
+        (*Worker still working, put onto unfinished queue*)
         let cur_worker = ((worker_id, worker_conn),count+1,key,values) in
         check_Done processing cur_worker::unfinished  
       end
-    |[] -> if unfinished = [] then [] else check_Done unfinished [] in
+    |[] -> if unfinished = [] then [] else 
+      Thread.delay 0.1; 
+      check_Done unfinished [] in
 
   let get_results : string * string list = 
     let append (res : string * string list) (kvspair : string * string list) 
@@ -67,37 +76,6 @@ let reduce kvs_pairs reduce_filename : (string * string list) list =
   let workers = List.fold_left assign [] kvs_pairs in
   check_Done workers [];
   get_results
-
-    (*
-  (*Loops through current tasks, if done, remove from list, else add to waiting_list until done*)
-  let rec check_Done (workers : worker list) (unfinished : worker list) : worker list = 
-  match (workers, unfinished) with
-  |(((worker_id, worker_conn), count, key, values)::xs, _) -> begin
-    if Connection.output worker_conn (ReduceRequest (worker_id, key, values)) then begin
-    match Connection.input worker_conn with 
-    |Reducer(Some(id), work) -> (*Worker still reducing*)
-      begin
-      if count > 25 then 
-        (*Taking too long, give work to another worker*)
-        let new_worker = Worker_manager.pop_worker reduce_manager in
-        Thread_pool.add_work(reduce_one key values cur_worker);
-        check_Done xs ((Some(new_worker), 0, key, values)::(Some(cur_worker), 0, key, values)::unfinished)
-      else check_Done xs (Some(cur_worker), count + 1, key, values)::unfinished 
-      end
-    |ReduceResults(Some(id), _) -> (*Worker done, don't add back to unfinished list, push on worker queue*) 
-      begin
-      Worker_manager.push_worker reduce_manager (worker_id, worker_conn); 
-      check_Done xs unfinished 
-      end
-    |_ -> (*Worker failure, get new worker, don't push back to worker queue*) 
-      begin
-      let new_worker = Worker_manager.pop_worker reduce_manager in
-      Thread_pool.add_work(append_hashtable new_worker key values);
-      check_Done workers (Some(new_worker), 0)::unfinished
-      end
-  |([], _) -> check_Done unfinished []; (*Run again with unfinished*)
-  |([], []) -> [] (*All reducers finished*)
-*)
 
 let map_reduce app_name mapper_name reducer_name kv_pairs =
   let map_filename    = Printf.sprintf "apps/%s/%s.ml" app_name mapper_name  in

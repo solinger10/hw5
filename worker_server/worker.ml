@@ -8,8 +8,9 @@ let send_response client response =
     else ());
     success
 
-let mappers = ref []
-let reducers = ref []
+type worker_type = Map | Reduce
+let workers = ref (Hashtbl.create 50)
+let workers_lock = Mutex.create ()
 
 let rec handle_request client =
   match Connection.input client with
@@ -17,27 +18,55 @@ let rec handle_request client =
       begin
         match v with
         | InitMapper source -> 
+          begin
           match Program.build source with
-            | (Some id, s) -> mappers := id::!mappers;
-              send_response client (Mapper(Some(id), s));
-            | (None, s) -> send_response client (Mapper(None, s))
+            | (Some id, s) -> 
+                Mutex.lock workers_lock;
+                if Hashtbl.mem !workers id then 
+                  begin
+                  Mutex.unlock workers_lock;
+                  send_response client (Mapper(None, s));
+                  end
+                else 
+                  begin
+                  Hashtbl.add !workers id Map;
+                  Mutex.unlock workers_lock;
+                  send_response client (Mapper(Some(id), s));
+                  end
+            | (None, s) -> send_response client (Mapper(None, s));
+          end
         | InitReducer source -> 
+          begin
           match Program.build source with
-            | (Some id, s) -> reducers := id::!reducers;
-              send_response client (Reducer(Some(id), s));
-            | (None, s) -> send_response client (Reducer(None, s))
+            | (Some id, s) -> 
+              begin
+              Mutex.lock workers_lock;
+              if Hashtbl.mem !workers id then 
+                begin
+                Mutex.unlock workers_lock;
+                send_response client (Reducer(None, s));
+                end
+              else 
+                begin
+                Hashtbl.add !workers id Reduce;
+                Mutex.unlock workers_lock;
+                send_response client (Reducer(Some(id), s));
+                end
+              end
+            | (None, s) -> send_response client (Reducer(None, s));
+          end
         | MapRequest (id, k, v) -> 
-          if List.mem id !mappers then
+          if Hashtbl.mem !workers id && (Hashtbl.find !workers id) = Map then
             match Program.run id (k,v) with
-            | Some result -> send_response client (MapResults(id, result);
-            | None -> send_response client (RuntimeError(id, source));
+            | Some result -> send_response client (MapResults(id, result));
+            | None -> send_response client (RuntimeError(id, k));
           else 
-            send_response client (InvalidWorker(id)); 
+            send_response client (InvalidWorker(id));
         | ReduceRequest (id, k, v) -> 
-          if List.mem id !reducers then
+          if ((Hashtbl.mem !workers id) && ((Hashtbl.find !workers id) = Reduce)) then
             match Program.run id (k,v) with
-            | Some result -> send_response client (ReduceResults(id, result);
-            | None -> send_response client (RuntimeError(id, source));
+            | Some result -> send_response client (ReduceResults(id, result));
+            | None -> send_response client (RuntimeError(id, k));
           else 
             send_response client (InvalidWorker(id));
         handle_request client
