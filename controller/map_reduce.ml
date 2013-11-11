@@ -55,7 +55,7 @@ let combine kv_pairs : (string * string list) list =
     else
       Hashtbl.add table k [v]
   in
-  (*Adds each pair to th hashtable accounting for duplicate keys*)
+  (*Adds each pair to the hashtable accounting for duplicate keys*)
   List.iter process kv_pairs;
   (*Creates list of tuples from the hashtable*)
   Hashtbl.fold (fun k v acc -> (k, v) :: acc) table []
