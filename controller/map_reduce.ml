@@ -15,29 +15,28 @@ let map kv_pairs map_filename : (string * string) list =
 
   let addwork (k,v) () = 
     let worker = pop_worker wm in 
-	match (Worker_manager.map worker k v) with
+    match (Worker_manager.map worker k v) with
     |None -> ()
     |Some l -> begin
       Mutex.lock lock;
       if not(Hashtbl.mem input k) then 
-	    (*Some other thread already got to it. Unoocks mutex lock and readd worker*)
-	    begin
+      (*Some other thread already got to it. Unoocks mutex lock and readd worker*)
+      begin
         Mutex.unlock lock;
         Worker_manager.push_worker wm worker;
         end
       else
-	    (*Adds processed key value pairs to answer list*)
-	    begin
+      (*Adds processed key value pairs to answer list*)
+      begin
         Hashtbl.remove input k;
         ans:= List.fold_left (fun acc x -> x::acc) (!ans) l;
         Mutex.unlock lock;
-    	Worker_manager.push_worker wm worker;
+      Worker_manager.push_worker wm worker;
       end
-	end
+  end
   in
   
-  while Hashtbl.length input > 0
-  do
+  while Hashtbl.length input > 0 do
     Hashtbl.iter (fun k v -> Thread_pool.add_work (addwork (k,v)) pool) input;
     Thread.delay 0.1
   done;
