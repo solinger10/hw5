@@ -13,14 +13,14 @@ let map kv_pairs map_filename : (string * string) list =
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
 
-  let addwork (k,v) () = 
+  let process_one (k,v) () = 
     let worker = pop_worker wm in 
     match (Worker_manager.map worker k v) with
     |None -> ()
     |Some l -> begin
       Mutex.lock lock;
       if not(Hashtbl.mem input k) then 
-      (*Some other thread already got to it. Unoocks mutex lock and readd worker*)
+      (*Some other thread already got to it. Unlock mutex lock and readd worker*)
       begin
         Mutex.unlock lock;
         Worker_manager.push_worker wm worker;
@@ -37,7 +37,7 @@ let map kv_pairs map_filename : (string * string) list =
   in
   
   while Hashtbl.length input > 0 do
-    Hashtbl.iter (fun k v -> Thread_pool.add_work (addwork (k,v)) pool) input;
+    Hashtbl.iter (fun k v -> Thread_pool.add_work (process_one (k,v)) pool) input;
     Thread.delay 0.1
   done;
   Thread_pool.destroy pool;
