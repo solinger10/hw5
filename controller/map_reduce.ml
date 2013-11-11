@@ -36,7 +36,14 @@ let map kv_pairs map_filename : (string * string) list =
   end
   in
   
+  (*Used to check if the hashtable has not been changed due to a bad key value pair*)
+  let c = ref 0 in
+  let old = ref 0 in
+  
   while Hashtbl.length input > 0 do
+    if !old = Hashtbl.length input then c := !c+1 else c := 0;
+    if !c > 15 then failwith "bad key value pair" else
+    old := Hashtbl.length input;
     Hashtbl.iter (fun k v -> Thread_pool.add_work (process (k,v)) pool) input;
     Thread.delay 0.1
   done;
