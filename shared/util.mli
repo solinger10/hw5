@@ -41,3 +41,4 @@ val marshal : 'a -> string
 (** Wrapper for OCaml's Marshal.from_string *)
 val unmarshal : string -> 'a
 
+val string_of_bodies : (string * body) list -> string

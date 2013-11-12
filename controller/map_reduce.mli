@@ -6,3 +6,4 @@ val map_reduce : string -> string -> string -> (string * string) list ->
  * identified by the file path `[app_name]/[mapper_name].ml` and
  * the reducer identified by the file path `[app_name]/[reducer_name].ml`.
  *)
+(*val combine : (string * string) list -> (string * string list) list *)

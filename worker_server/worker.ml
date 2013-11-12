@@ -8,9 +8,11 @@ let send_response client response =
     else ());
     success
 
-type worker_type = Map | Reduce
-let workers = ref (Hashtbl.create 50)
-let workers_lock = Mutex.create ()
+
+let mappers = Hashtbl.create 100
+let reducers = Hashtbl.create 100
+
+let lock = Mutex.create()  
 
 let rec handle_request client =
   match Connection.input client with
@@ -21,57 +23,119 @@ let rec handle_request client =
           begin
           match Program.build source with
             | (Some id, s) -> 
-                Mutex.lock workers_lock;
-                if Hashtbl.mem !workers id then 
+                Mutex.lock lock;
+                if Hashtbl.mem mappers id then 
                   begin
-                  Mutex.unlock workers_lock;
-                  send_response client (Mapper(None, s));
+                  Mutex.unlock lock;
+                  if send_response client (Mapper(None, s)) then ()
+                  else handle_request client
                   end
                 else 
                   begin
-                  Hashtbl.add !workers id Map;
-                  Mutex.unlock workers_lock;
-                  send_response client (Mapper(Some(id), s));
+                  Hashtbl.add mappers id s;
+                  Mutex.unlock lock;
+                  if send_response client (Mapper(Some(id), s)) then ()
+                  else handle_request client
                   end
-            | (None, s) -> send_response client (Mapper(None, s));
+            | (None, s) -> if send_response client (Mapper(None, s)) then ()
+              else handle_request client
           end
         | InitReducer source -> 
           begin
           match Program.build source with
             | (Some id, s) -> 
               begin
-              Mutex.lock workers_lock;
-              if Hashtbl.mem !workers id then 
+              Mutex.lock lock;
+              if Hashtbl.mem reducers id then 
                 begin
-                Mutex.unlock workers_lock;
-                send_response client (Reducer(None, s));
+                Mutex.unlock lock;
+                if send_response client (Reducer(None, s)) then ()
+                else handle_request client
                 end
               else 
                 begin
-                Hashtbl.add !workers id Reduce;
-                Mutex.unlock workers_lock;
-                send_response client (Reducer(Some(id), s));
+                Hashtbl.add reducers id s;
+                Mutex.unlock lock;
+                if send_response client (Reducer(Some(id), s)) then ()
+                else handle_request client
                 end
               end
-            | (None, s) -> send_response client (Reducer(None, s));
+            | (None, s) -> if send_response client (Reducer(None, s)) then ()
+              else handle_request client
           end
         | MapRequest (id, k, v) -> 
-          if Hashtbl.mem !workers id && (Hashtbl.find !workers id) = Map then
+          if Hashtbl.mem mappers id then
             match Program.run id (k,v) with
-            | Some result -> send_response client (MapResults(id, result));
-            | None -> send_response client (RuntimeError(id, k));
+            | Some result -> 
+              if send_response client (MapResults(id, result)) then ()
+              else handle_request client
+            | None -> 
+              if send_response client (RuntimeError(id, "MapRequest")) then ()
+              else handle_request client
           else 
-            send_response client (InvalidWorker(id));
+            if send_response client (InvalidWorker(id)) then ()
+            else handle_request client 
         | ReduceRequest (id, k, v) -> 
-          if ((Hashtbl.mem !workers id) && ((Hashtbl.find !workers id) = Reduce)) then
+          if Hashtbl.mem reducers id then
             match Program.run id (k,v) with
-            | Some result -> send_response client (ReduceResults(id, result));
-            | None -> send_response client (RuntimeError(id, k));
+            | Some result -> 
+              if send_response client (ReduceResults(id, result)) then ()
+              else handle_request client 
+            | None -> 
+              if send_response client (RuntimeError(id, "ReduceRequest Error")) then ()
+              else handle_request client
           else 
-            send_response client (InvalidWorker(id));
-        handle_request client
+            if send_response client (InvalidWorker(id)) then ()
+            else handle_request client
       end
+(*
+      match v with
+      | InitMapper source -> begin
+        match Program.build source with
+        | (Some id, s) ->
+          Mutex.lock lock;
+          Hashtbl.add mappers id s;
+          Mutex.unlock lock;
+          if send_response client (Mapper (Some id, s))
+          then handle_request client else ()
+        | (None, s) -> 
+        if send_response client (Mapper (None, s))
+        then handle_request client else ()
+      end
+      | InitReducer source -> begin
+        match Program.build source with
+        | (Some id, s) ->
+          Mutex.lock lock;
+          Hashtbl.add reducers id s;
+          Mutex.unlock lock;
+          if send_response client (Reducer (Some id, s))
+          then handle_request client else ()
+        | (None, s) -> 
+        if send_response client (Reducer (None, s))
+        then handle_request client else ()
+      end
+      | MapRequest (id, k, v) -> 
+        if Hashtbl.mem mappers id then begin 
+          match Program.run id (k,v) with
+          | None ->
+            if send_response client (RuntimeError (id,"MapRequest error")) then
+            handle_request client else ()
+          | Some l -> if send_response client (MapResults (id,l)) then
+            handle_request client else ()
+        end
+        else if send_response client (InvalidWorker id) then handle_request client
+      | ReduceRequest (id, k, v) -> 
+        if Hashtbl.mem reducers id then begin 
+          match Program.run id (k,v) with
+          | None ->
+            if send_response client (RuntimeError (id,"ReduceRequest error")) then
+            handle_request client else ()
+          | Some l -> if send_response client (ReduceResults (id,l)) then
+            handle_request client else () end
+        else if send_response client (InvalidWorker id) then handle_request client
+      end
+      *)
   | None ->
-      Connection.close client;
-      print_endline "Connection lost while waiting for request."
+    Connection.close client;
+    print_endline "Connection lost while waiting for request."
 

@@ -56,3 +56,11 @@ controller.exe: shared/util.cma $(SHARED_SOURCES) $(CONTROLLER_SOURCES) controll
 	ocamlc -thread -o controller.exe -I shared -I controller -I apps/nbody \
 	-I apps/word_count -I apps/grades -I apps/transaction_track dynlink.cma unix.cma \
     threads.cma str.cma util.cma $(SHARED_SOURCES) $(CONTROLLER_SOURCES) controller/main.ml
+
+TOP_SOURCES = unix.cma str.cma -I +threads threads.cma -I shared plane.cmo \
+util.cma thread_pool.cmo connection.cmo protocol.cmo -I controller \
+worker_manager.cmo map_reduce.cmo
+
+.PHONY: top
+top: con
+	rlwrap ocaml $(TOP_SOURCES)
