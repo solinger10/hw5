@@ -1,11 +1,20 @@
 open Util;;
-let (key, values) = Program.get_input() in
-let sorted = Array.of_list values in 
-Array.sort (fun x y -> int_of_float ((float_of_string x)-.(float_of_string y))) 
-	sorted;
-let len = Array.length sorted in
-let median = 
-	if len mod 2 = 1 then float_of_string (Array.get sorted (len/2))
-	else ((float_of_string (Array.get sorted ((len/2)-1))) +. 
-		(float_of_string (Array.get sorted (len/2)))) /. 2. in
-Program.set_output [string_of_float median]
+let (key, value) = Program.get_input() in
+match split_spaces value with
+x::xs -> let num_trans = x and trans = xs in
+
+let format_block (t : string list) trans incnt outcnt acc = 
+	match t with
+	| a::b::xs -> 
+		let key = int_of_string key in
+		if incnt > 0 then (*Formatting incoins*)
+			format_trans (b::xs) trans (incnt-1) outcnt (a, (0, key))::acc
+		else if outcnt > 0 then (*Formatting outcoins*)
+			format_trans xs trans 0 (outcnt-1) (a,(int_of_string b, key))::acc
+		else if trans > 0 then failwith "More transactions than stated"
+		else (*End of one transaction, start of another*)
+			match t with
+			| incnt::outcnt::xs -> format_trans (trans-1) xs incnt outcnt acc
+	| [] -> acc (*Completely done with block*)
+in
+Program.set_output(format_block trans num_trans 0 0 [])
