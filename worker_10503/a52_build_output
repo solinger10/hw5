@@ -1,3 +1,0 @@
-File "worker_10503/a52.ml", line 20, characters 9-12:
-Error: This expression has type (string * (int * int)) list
-       but an expression was expected of type string * (int * int) list

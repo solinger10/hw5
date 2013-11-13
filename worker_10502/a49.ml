@@ -1,21 +1,6 @@
 open Util;;
-let (key, value) = Program.get_input() in
-match split_spaces value with
-x::xs -> let num_trans = x and trans = xs in
-
-let rec format_block (t : string list) trans incnt outcnt acc 
-	: string * (int * int) list = 
-	match t with
-	| a::b::xs -> 
-		let key = int_of_string key in
-		if incnt > 0 then (*Formatting incoins*)
-			format_block (b::xs) trans (incnt-1) outcnt (a, (0, key))::acc
-		else if outcnt > 0 then (*Formatting outcoins*)
-			format_block xs trans 0 (outcnt-1) (a,(int_of_string b, key))::acc
-		else if trans > 0 then failwith "More transactions than stated"
-		else (*End of one transaction, start of another*)
-			match t with
-			| incnt::outcnt::xs -> format_block (trans-1) xs incnt outcnt acc
-	| [] -> acc (*Completely done with block*)
-in
-Program.set_output(format_block trans num_trans 0 0 [])
+let (key, values) = Program.get_input() in
+let sorted = 
+	List.sort (fun (_,id1,tid1) (_,id2,tid2) -> if id1 - id2 = 0 then tid1 - tid2 else id1 - id2) values in
+let res = List.fold_left (fun acc (x,_,_) -> if x = Int64.zero then Int64.zero else Int64.add x acc) Int64.zero sorted in
+Program.set_output [Int64.to_string res]

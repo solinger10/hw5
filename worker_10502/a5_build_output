@@ -1,4 +1,0 @@
-File "worker_10502/a5.ml", line 3, characters 19-59:
-Warning 8: this pattern-matching is not exhaustive.
-Here is an example of a value that is not matched:
-[]

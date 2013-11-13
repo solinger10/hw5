@@ -16,7 +16,7 @@ let map kv_pairs map_filename : (string * string) list =
 
   let process (k,v) () = 
     let worker = pop_worker wm in 
-    Printf.printf "Sending map request...\n";
+    (*Printf.printf "Sending map request...\n";*)
     match (Worker_manager.map worker k v) with
     |None -> Printf.printf "Worker failure\n"; ()
     |Some l -> begin
@@ -24,14 +24,14 @@ let map kv_pairs map_filename : (string * string) list =
       if not(Hashtbl.mem input k) then 
       (*Some other thread already got to it. Unlock mutex lock and readd worker*)
       begin
-        Printf.printf "There is no %s key in the table\n" k;
+        (*Printf.printf "There is no %s key in the table\n" k;*)
         Mutex.unlock lock;
         Worker_manager.push_worker wm worker;
         end
       else
       (*Adds processed key value pairs to answer list*)
       begin
-        Printf.printf "Removing key %s from table\n" k;
+        (*Printf.printf "Removing key %s from table\n" k;*)
         Hashtbl.remove input k;
         ans:= List.fold_left (fun acc x -> x::acc) (!ans) l;
         Mutex.unlock lock;
@@ -46,13 +46,13 @@ let map kv_pairs map_filename : (string * string) list =
   
   (*List.iter (fun kv -> Thread_pool.add_work (process kv) pool) kv_pairs;*)
   while Hashtbl.length input > 0 do
-    Printf.printf "Hashtable length: %n\n" (Hashtbl.length input);
-    Printf.printf "Results list length: %n\n" (List.length !ans);
+    (*Printf.printf "Hashtable length: %n\n" (Hashtbl.length input);
+    Printf.printf "Results list length: %n\n" (List.length !ans);*)
     if !old = Hashtbl.length input then c := !c+1 else c := 0;
     if !c > 15 then failwith "map bad key value pair" else
     old := Hashtbl.length input;
     Hashtbl.iter (fun k v -> 
-          Printf.printf "Adding another thread to key %s\n" k;
+          (*Printf.printf "Adding another thread to key %s\n" k;*)
           Thread_pool.add_work (process (k,v)) pool) input;
     Thread.delay 0.1
   done;
