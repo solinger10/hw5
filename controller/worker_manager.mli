@@ -3,7 +3,6 @@
 type 'a worker_manager
 
 type mapper
-
 type reducer
 
 val initialize_mappers : string -> mapper worker_manager
