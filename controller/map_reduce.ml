@@ -6,7 +6,7 @@ open Hashtbl
 
 
 let map kv_pairs map_filename : (string * string) list = 
-  let wm = Worker_manager.initialize_mappers map_filename in
+  let wm = initialize_mappers map_filename in
   let input = Hashtbl.create (List.length kv_pairs) in
   let pool = Thread_pool.create 100 in
   let ans = ref [] in
@@ -15,7 +15,6 @@ let map kv_pairs map_filename : (string * string) list =
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
   let process (k,v) () = 
-    Printf.printf "Processing...\n";
     let worker = pop_worker wm in 
     Printf.printf "Sending map request...\n";
     match (Worker_manager.map worker k v) with
@@ -49,23 +48,13 @@ let map kv_pairs map_filename : (string * string) list =
   while Hashtbl.length input > 0 do
     Printf.printf "Hashtable length: %n\n" (Hashtbl.length input);
     Printf.printf "Results list length: %n\n" (List.length !ans);
-<<<<<<< HEAD
-
-    if !old = Hashtbl.length input then c := !c+1 else c := 0;
-    if !c > 20 then failwith "map bad key value pair" else
-=======
     if !old = Hashtbl.length input then c := !c+1 else c := 0;
     if !c > 15 then failwith "map bad key value pair" else
->>>>>>> origin/prb76
     old := Hashtbl.length input;
     Hashtbl.iter (fun k v -> 
           Printf.printf "Adding another thread to key %s\n" k;
           Thread_pool.add_work (process (k,v)) pool) input;
-<<<<<<< HEAD
-    Thread.delay 0.01
-=======
     Thread.delay 0.1
->>>>>>> origin/prb76
   done;
   Thread_pool.destroy pool;
   clean_up_workers wm;
@@ -118,23 +107,6 @@ let reduce kvs_pairs reduce_filename : (string * string list) list =
       end
     end
     | None -> () in
-<<<<<<< HEAD
-
-  let count = ref 0 in
-  let old = ref 0 in
-  
-  while Hashtbl.length input > 0 do
-    if !old = Hashtbl.length input then count := !count+1 else count := 0;
-    if !count > 15 then failwith "reduce bad key value pair" else
-    old := Hashtbl.length input;
-    Hashtbl.iter (fun k v -> Thread_pool.add_work (process (k,v)) pool) input;
-    Thread.delay 0.1
-  done;
-  Thread_pool.destroy pool;
-  clean_up_workers wm;
-  !output
-=======
->>>>>>> origin/prb76
 
   let count = ref 0 in
   let old = ref 0 in
@@ -157,4 +129,3 @@ let map_reduce app_name mapper_name reducer_name kv_pairs =
   let combined = combine mapped in
   let reduced  = reduce combined reduce_filename in
   reduced
-
