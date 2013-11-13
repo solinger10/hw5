@@ -16,7 +16,7 @@ let map kv_pairs map_filename : (string * string) list =
 
   let process (k,v) () = 
     let worker = pop_worker wm in 
-    Printf.printf "Sending map request...";
+    Printf.printf "Sending map request...\n";
     match (Worker_manager.map worker k v) with
     |None -> Printf.printf "Worker failure\n"; ()
     |Some l -> begin
@@ -48,14 +48,13 @@ let map kv_pairs map_filename : (string * string) list =
   while Hashtbl.length input > 0 do
     Printf.printf "Hashtable length: %n\n" (Hashtbl.length input);
     Printf.printf "Results list length: %n\n" (List.length !ans);
-
     if !old = Hashtbl.length input then c := !c+1 else c := 0;
-    if !c > 20 then failwith "map bad key value pair" else
+    if !c > 15 then failwith "map bad key value pair" else
     old := Hashtbl.length input;
     Hashtbl.iter (fun k v -> 
           Printf.printf "Adding another thread to key %s\n" k;
           Thread_pool.add_work (process (k,v)) pool) input;
-    Thread.delay 0.01
+    Thread.delay 0.1
   done;
   Thread_pool.destroy pool;
   clean_up_workers wm;
@@ -122,55 +121,6 @@ let reduce kvs_pairs reduce_filename : (string * string list) list =
   Thread_pool.destroy pool;
   clean_up_workers wm;
   !output
-
-(*
-  (*Assigns a reducer worker a task based off a given kv_pair*)
-  let assign workers kvs_pair =
-  	match kvs_pair with
-  	|(key, values) -> 
-      begin
-  		let cur_worker = Worker_manager.pop_worker reduce_manager in
-      Thread_pool.add_work (fun n -> reduce_one key values cur_worker) threads;
-      (cur_worker, 0, key, values)::workers
-      end in
-
-  (*Loops through list of workers and their tasks, if the key of a task is undefined in the hashtable, the worker is still working, so wait. When the key is bound, remove the worker info from the list and push onto stack*)
-  let rec check_Done processing unfinished = 
-    match processing with
-    |((worker_id, worker_conn), count, key, values)::xs -> 
-      begin
-      if Hashtbl.mem h_table key then 
-        (*Worker done, push back on to queue*)
-        begin
-        Worker_manager.push_worker reduce_manager (worker_id, worker_conn);
-        check_Done xs unfinished
-        end
-      else if count > 10 then
-        (*Taking too long, assign new worker*)
-        let new_worker = Worker_manager.pop_worker reduce_manager in
-        Thread_pool.add_work(reduce_one new_worker key values);
-        check_Done processing (new_worker, 0, key, values)::
-        ((worker_id, worker_conn), 0, key, values)::unfinished
-      else 
-        (*Worker still working, put onto unfinished queue*)
-        let cur_worker = ((worker_id, worker_conn),count+1,key,values) in
-        check_Done processing cur_worker::unfinished  
-      end
-    |[] -> if unfinished = [] then [] else 
-      Thread.delay 0.1; 
-      check_Done unfinished [] in
-
-  let get_results : string * string list = 
-    let append (res : string * string list) (kvspair : string * string list) 
-    : (string * string list) = 
-    match kvs_pair with
-    |(key, _) -> (key, (Hashtbl.find (!h_table) key))::res in
-    List.rev (List.fold_left append [] kvs_pairs) in
-
-  let workers = List.fold_left assign [] kvs_pairs in
-  check_Done workers [];
-  get_results
-*)
 
 let map_reduce app_name mapper_name reducer_name kv_pairs =
   let map_filename    = Printf.sprintf "apps/%s/%s.ml" app_name mapper_name  in

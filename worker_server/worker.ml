@@ -16,79 +16,7 @@ let lock = Mutex.create()
 
 let rec handle_request client =
   match Connection.input client with
-    Some v ->
-      begin
-        match v with
-        | InitMapper source -> 
-          begin
-          match Program.build source with
-            | (Some id, s) -> 
-                Mutex.lock lock;
-                if Hashtbl.mem mappers id then 
-                  begin
-                  Mutex.unlock lock;
-                  if send_response client (Mapper(None, s)) then ()
-                  else handle_request client
-                  end
-                else 
-                  begin
-                  Hashtbl.add mappers id s;
-                  Mutex.unlock lock;
-                  if send_response client (Mapper(Some(id), s)) then ()
-                  else handle_request client
-                  end
-            | (None, s) -> if send_response client (Mapper(None, s)) then ()
-              else handle_request client
-          end
-        | InitReducer source -> 
-          begin
-          match Program.build source with
-            | (Some id, s) -> 
-              begin
-              Mutex.lock lock;
-              if Hashtbl.mem reducers id then 
-                begin
-                Mutex.unlock lock;
-                if send_response client (Reducer(None, s)) then ()
-                else handle_request client
-                end
-              else 
-                begin
-                Hashtbl.add reducers id s;
-                Mutex.unlock lock;
-                if send_response client (Reducer(Some(id), s)) then ()
-                else handle_request client
-                end
-              end
-            | (None, s) -> if send_response client (Reducer(None, s)) then ()
-              else handle_request client
-          end
-        | MapRequest (id, k, v) -> 
-          if Hashtbl.mem mappers id then
-            match Program.run id (k,v) with
-            | Some result -> 
-              if send_response client (MapResults(id, result)) then ()
-              else handle_request client
-            | None -> 
-              if send_response client (RuntimeError(id, "MapRequest")) then ()
-              else handle_request client
-          else 
-            if send_response client (InvalidWorker(id)) then ()
-            else handle_request client 
-        | ReduceRequest (id, k, v) -> 
-          if Hashtbl.mem reducers id then
-            match Program.run id (k,v) with
-            | Some result -> 
-              if send_response client (ReduceResults(id, result)) then ()
-              else handle_request client 
-            | None -> 
-              if send_response client (RuntimeError(id, "ReduceRequest Error")) then ()
-              else handle_request client
-          else 
-            if send_response client (InvalidWorker(id)) then ()
-            else handle_request client
-      end
-(*
+    | Some v -> begin
       match v with
       | InitMapper source -> begin
         match Program.build source with
@@ -101,7 +29,7 @@ let rec handle_request client =
         | (None, s) -> 
         if send_response client (Mapper (None, s))
         then handle_request client else ()
-      end
+        end
       | InitReducer source -> begin
         match Program.build source with
         | (Some id, s) ->
@@ -113,7 +41,7 @@ let rec handle_request client =
         | (None, s) -> 
         if send_response client (Reducer (None, s))
         then handle_request client else ()
-      end
+        end
       | MapRequest (id, k, v) -> 
         if Hashtbl.mem mappers id then begin 
           match Program.run id (k,v) with
@@ -124,7 +52,7 @@ let rec handle_request client =
             handle_request client else ()
         end
         else if send_response client (InvalidWorker id) then handle_request client
-      | ReduceRequest (id, k, v) -> 
+      | ReduceRequest (id, k, v) -> begin
         if Hashtbl.mem reducers id then begin 
           match Program.run id (k,v) with
           | None ->
@@ -132,9 +60,10 @@ let rec handle_request client =
             handle_request client else ()
           | Some l -> if send_response client (ReduceResults (id,l)) then
             handle_request client else () end
-        else if send_response client (InvalidWorker id) then handle_request client
+        else if send_response client (InvalidWorker id) then
+        handle_request client else () 
+        end
       end
-      *)
   | None ->
     Connection.close client;
     print_endline "Connection lost while waiting for request."
