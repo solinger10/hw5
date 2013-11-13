@@ -1,61 +1,126 @@
 open Util
 open Worker_manager
-open Thread_pool
-open Hashtbl 
 
-let h_table : Hashtbl ref = ref Hashtbl.create 97
-let h_table_Mutex = Mutex.create ()
 
 (* TODO implement these *)
 let map kv_pairs map_filename : (string * string) list = 
-  let wm = initialize_mappers map_filename in
+  let wm = Worker_manager.initialize_mappers map_filename in
   let input = Hashtbl.create (List.length kv_pairs) in
   let pool = Thread_pool.create 100 in
-  
-  let lock = mutex.create () in
-  
+  let ans = ref [] in
+  let lock = Mutex.create () in
+  (*Puts every key value pair into the hashtable*)
   List.iter (fun (k,v) -> Hashtbl.add input k v) kv_pairs;
 
-  
-  let addwork (k,v) = 
+  let process (k,v) () = 
+    Printf.printf "Processing...\n";
     let worker = pop_worker wm in 
-	
-	match (Worker_manager.map worker k v) with
-	|None -> ()
-	|Some l ->
+    Printf.printf "Sending map request...\n";
+    match (Worker_manager.map worker k v) with
+    |None -> Printf.printf "Worker failure\n"; ()
+    |Some l -> begin
       Mutex.lock lock;
-	  if Hashtbl.mem input k then 
-	  else 
-	  
+      if not(Hashtbl.mem input k) then 
+      (*Some other thread already got to it. Unlock mutex lock and readd worker*)
+      begin
+        Printf.printf "There is no %s key in the table\n" k;
+        Mutex.unlock lock;
+        Worker_manager.push_worker wm worker;
+        end
+      else
+      (*Adds processed key value pairs to answer list*)
+      begin
+        Printf.printf "Removing key %s from table\n" k;
+        Hashtbl.remove input k;
+        ans:= List.fold_left (fun acc x -> x::acc) (!ans) l;
+        Mutex.unlock lock;
+      Worker_manager.push_worker wm worker;
+      end
+  end
+  in
+  
+  (*Used to check if the hashtable has not been changed due to a bad key value pair*)
+  let c = ref 0 in
+  let old = ref 0 in
+  
+  (*List.iter (fun kv -> Thread_pool.add_work (process kv) pool) kv_pairs;*)
+  while Hashtbl.length input > 0 do
+    Printf.printf "Hashtable length: %n\n" (Hashtbl.length input);
+    Printf.printf "Results list length: %n\n" (List.length !ans);
 
+    if !old = Hashtbl.length input then c := !c+1 else c := 0;
+    if !c > 20 then failwith "map bad key value pair" else
+    old := Hashtbl.length input;
+    Hashtbl.iter (fun k v -> 
+          Printf.printf "Adding another thread to key %s\n" k;
+          Thread_pool.add_work (process (k,v)) pool) input;
+    Thread.delay 0.01
+  done;
+  Thread_pool.destroy pool;
+  clean_up_workers wm;
+  !ans
+  
 let combine kv_pairs : (string * string list) list = 
-  failwith "You have been doomed ever since you lost the ability to love."
+  let table = Hashtbl.create 100 in
+  let process (k,v) = 
+    if (Hashtbl.mem table k) then
+      let l = (Hashtbl.find table k) in 
+      Hashtbl.replace table k (v::l)
+    else
+      Hashtbl.add table k [v]
+  in
+  (*Adds each pair to the hashtable accounting for duplicate keys*)
+  List.iter process kv_pairs;
+  (*Creates list of tuples from the hashtable*)
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) table []
 
 let reduce kvs_pairs reduce_filename : (string * string list) list =
-  let reduce_manager = Worker_manager.initialize_reducers reduce_filename in
-  let threads = Thread_pool.create (List.length kvs_pairs) in
-
-  (*Appends the results of a worker to the hashtable, used for add_work*)
-  let append_hashtable cur_worker key values cur_worker : unit = 
-    Mutex.lock h_table_Mutex;
-    let res_val = Worker_manager.reduce cur_worker key values 
-    and new_table = !h_table in
-      Hashtbl.replace new_table key res_val; 
-      h_table := new_table; 
-      Mutex.unlock h_table_Mutex in
-
-  (*Iterates the kvs_pairs list, assigning a worker to each kvs pair*)
-  let rec distribute kvs_pairs : unit =
-  	match kvs_pairs with
-  	|(key, values)::xs -> 
-      begin
-  		let cur_worker = Worker_manager.pop_worker reduce_manager in
-      Thread_pool.add_work(append_hashtable cur_worker key values) threads;
-      distribute xs
-      end
-  	|[] -> out_pairs in
-  distribute kvs_pairs;
+  let wm = Worker_manager.initialize_reducers reduce_filename in
+  let pool = Thread_pool.create 100 in
+  let input = Hashtbl.create (List.length kvs_pairs) in
+  let output = ref [] in
+  let t_lock = Mutex.create () in
+  let l_lock = Mutex.create () in
+  List.iter (fun (k,v) -> Hashtbl.add input k v) kvs_pairs;
   
+  let process (k,v) () =
+    let worker = pop_worker wm in
+    match Worker_manager.reduce worker k v with
+    | Some res -> 
+    begin
+      Mutex.lock t_lock;
+      if not(Hashtbl.mem input k) then
+      begin
+        (*kv_pair already evaluated, push worker back on queue*)
+        Mutex.unlock t_lock;
+        Worker_manager.push_worker wm worker;
+      end
+      else 
+      begin
+        (*kv_pair evaluated, store results, remove kv_pair from table*)
+        Hashtbl.remove input k;
+        Mutex.unlock t_lock;
+        Mutex.lock l_lock;
+        output := (k, res)::!output;
+        Mutex.unlock l_lock;
+        Worker_manager.push_worker wm worker;
+      end
+    end
+    | None -> () in
+
+  let count = ref 0 in
+  let old = ref 0 in
+  
+  while Hashtbl.length input > 0 do
+    if !old = Hashtbl.length input then count := !count+1 else count := 0;
+    if !count > 15 then failwith "reduce bad key value pair" else
+    old := Hashtbl.length input;
+    Hashtbl.iter (fun k v -> Thread_pool.add_work (process (k,v)) pool) input;
+    Thread.delay 0.1
+  done;
+  Thread_pool.destroy pool;
+  clean_up_workers wm;
+  !output
 
 
 let map_reduce app_name mapper_name reducer_name kv_pairs =
