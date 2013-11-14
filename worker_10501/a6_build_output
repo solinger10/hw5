@@ -1,3 +1,0 @@
-File "worker_10501/a6.ml", line 5, characters 105-106:
-Error: This expression has type int64 but an expression was expected of type
-         string

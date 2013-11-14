@@ -1,8 +1,8 @@
 open Util;;
 let (key, values) = Program.get_input() in
 let sorted = List.sort 
- 	(fun x y -> if x < y then -1 else if x > y then 1 else 0)
- 	(*(fun x y -> int_of_float ((float_of_string x) -. (float_of_string y)))*)
+ 	(fun x y -> if (float_of_string) x < (float_of_string) y then -1 
+ 		else if (float_of_string) x > (float_of_string) y then 1 else 0)
 	values in
 let len = List.length sorted in
 let median = 

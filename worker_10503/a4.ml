@@ -1,6 +1,13 @@
 open Util;;
 let (key, values) = Program.get_input() in
-let sorted = 
-	List.sort (fun (_,(_,id1)) (_,(_,id2)) -> id1 - id2) values in
-let res = List.fold_left (fun acc x -> if x = Int64.zero then Int64.zero else Int64.add x acc) Int64.zero sorted in
-Program.set_output [Int64.to_string res]
+let sorted = List.sort 
+ 	(fun x y -> if (float_of_string) x < (float_of_string) y then -1 
+ 		else if (float_of_string) x > (float_of_string) y then 1 else 0)
+	values in
+let len = List.length sorted in
+let median = 
+	if len mod 2 = 1 then float_of_string (List.nth sorted (len/2))
+	else ((float_of_string (List.nth sorted ((len/2)-1))) +. 
+		(float_of_string (List.nth sorted (len/2)))) /. 2. in
+Program.set_output [string_of_float median]
+

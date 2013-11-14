@@ -36,22 +36,26 @@ let mem_spec table k b =
 
 (** Map.empty *****************************************************************)
 
-let empty_spec =
-  failwith "A true sign of intelligence is not knowledge but imagination."
+let empty_spec table b =
+  b = ((bindings table) = [])
 
 (* Dependent type for empty: 
  *
- * val empty : TODO
+ * val empty : (table : ('a,'b) t)
+            -> (b : bool where empty_spec table b)
  *)
 
 (** Map.find ******************************************************************)
 
-let find_spec =
-  failwith "A person who never made a mistake never tried anything new."
+let find_spec table k x =
+  if not (mem table k) then true
+  else x = snd (List.find (fun (k', x') -> k' = k) (bindings table))
 
 (* Dependent type for find: 
  *
- * val find : TODO
+ * val find : (table : ('a, 'b) t)
+            -> (k : 'a)
+            -> (x : 'b where find_spec table k x)
  *)
 
 
@@ -85,23 +89,42 @@ let add_spec table k v result =
 
 (** Map.remove ****************************************************************)
 
-let remove_spec = 
-  failwith "I have no special talent, I am only passionately curious."
+let subset l1 l2 = 
+  List.for_all (fun x -> List.mem x l2) l1
 
+let eqset l1 l2 = 
+  subset l1 l2 && subset l1 l2
+
+let bindings_without k table = 
+  List.filter (fun (k', _) -> k <> k') (bindings table)
+
+let remove_spec table k result = 
+  eqset (bindings_without k table) (bindings results)
+  
 (* Dependent type for remove: 
  *
- * val remove : TODO
+ * val remove : (k : 'a)
+              -> (table : ('a, 'b) t)
+              -> (result : ('a, 'b) t where remove_spec table k result)
  *)
 
 (** Map.equal *****************************************************************)
 
+let subset l1 l2 cmp = 
+  List.for_all (fun x -> List.exists (cmp x) l2) l1
 
-let equal_spec =
-  failwith ("Insanity: doing the same thing over and over"^
-            " again and expecting different results.")
+let eqset l1 l2 cmp = 
+  subset l1 l2 cmp = subset l2 l1 cmp
+
+let equal_spec cmp table1 table2 b =
+  b = eqset (bindings table1) (bindings table2) cmp
+
 
 (* Dependent type for equal: 
- * val equal : TODO
+ * val equal : (cmp : ('a, 'b) -> ('a, 'b) -> bool)
+            -> (table1 : ('a, 'b) t)
+            -> (table2 : ('a, 'b) t)
+            -> (b : bool where equal_spec cmp table1 table2 b)
  *)
 
 end
