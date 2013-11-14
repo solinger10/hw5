@@ -2,6 +2,7 @@ writeup.pdf
 *.cmo
 *.cma
 *.cmi
+worker*/
 
 #################
 ## Eclipse
