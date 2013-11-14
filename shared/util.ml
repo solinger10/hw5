@@ -13,7 +13,7 @@ let cBIG_G : Plane.scalar = 6.67 *. (10.**(-11.))
 
 (*
  * Computes word vectors for a set of documents. The given file should
- * contain a list of documents: one per line. Each document is of the
+ * contain a list of documents: one per line. Each document is ofthe
  * format: "id @ title @ body" such that '@' does not appear in the title
  * or body.
  *)

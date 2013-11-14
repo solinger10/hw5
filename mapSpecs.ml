@@ -36,22 +36,22 @@ let mem_spec table k b =
 
 (** Map.empty *****************************************************************)
 
-let empty_spec =
-  failwith "A true sign of intelligence is not knowledge but imagination."
+let empty_spec table = (List.length (bindings table)) = 0
 
 (* Dependent type for empty: 
  *
- * val empty : TODO
+ * val empty : (table : ('a,'b) t where empty_spec table)
  *)
 
 (** Map.find ******************************************************************)
 
-let find_spec =
-  failwith "A person who never made a mistake never tried anything new."
+let find_spec table k v =
+  if not (mem table k) then true
+  else List.fold_left (fun acc (a,b) -> if a = k then b = v else acc) false table
 
 (* Dependent type for find: 
  *
- * val find : TODO
+ * val find : (table : ('a,'b) t) -> (k : 'a) -> (v : 'b) -> (b : ('a * 'b) where find_spec table k v)
  *)
 
 
@@ -85,23 +85,29 @@ let add_spec table k v result =
 
 (** Map.remove ****************************************************************)
 
-let remove_spec = 
-  failwith "I have no special talent, I am only passionately curious."
+let remove_spec table k result = 
+  eqset (bindings_without k table) (bindings result)
 
 (* Dependent type for remove: 
  *
- * val remove : TODO
+ * val remove : (table : ('a,'b) t)
+ *        -> (k:'a)
+ *        -> (result : ('a,'b) t where remove_spec table k result)
  *)
 
 (** Map.equal *****************************************************************)
 
 
-let equal_spec =
-  failwith ("Insanity: doing the same thing over and over"^
-            " again and expecting different results.")
+let equal_spec t1 t2 cmp b =
+  List.fold_left (fun acc (a1,b1) (a2,b2) ->
+    if acc then if ((Ord.Compare a1 a2) = 0) && (cmp b1 b2) else acc)
+	  true (bindings t1) (bindings t2)
 
 (* Dependent type for equal: 
- * val equal : TODO
+ * val equal : (table : ('a,'b) t2)
+ *        -> (table : ('a,'b) t1)
+ *        -> (cmp : ('b -> 'b -> bool)
+ *        -> (b : bool where equal_spec t1 t2 cmp b)
  *)
 
 end
