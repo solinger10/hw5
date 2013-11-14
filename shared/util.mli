@@ -5,7 +5,7 @@ type student = {id_num : int; course_grades : string}
 
 val load_documents : string -> document list
 (**
- * [load_documents filepath]
+ * [load_documents filepath] 
  * Computes word vectors for the set of documents located by [filepath]. 
  * The file at [filepath] must contain a list of documents, one per line. 
  * Each document is of the format: "id @ title @ body", 
