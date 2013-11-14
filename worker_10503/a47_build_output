@@ -1,4 +1,0 @@
-File "worker_10503/a47.ml", line 11, characters 3-60:
-Error: This expression has type 'a list
-       but an expression was expected of type 'a
-       The type variable 'a occurs inside 'a list
